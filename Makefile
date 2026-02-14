@@ -12,9 +12,8 @@ help:
 	@echo "  make restart - Restart the environment"
 	@echo "  make logs    - View and follow container logs"
 	@echo "  make status  - Check container status"
-
 up:
-	@./start-orb.sh
+	@bash ./start-orb.sh
 
 down:
 	@echo "🛑 Stopping ORB..."

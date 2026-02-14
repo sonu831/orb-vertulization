@@ -1,10 +1,15 @@
 #!/bin/bash
 echo "🚀 Starting ORB Virtualization Project..."
 
-# Check if Docker is running
-if ! docker info > /dev/null 2>&1; then
-  echo "❌ Error: Docker is not running. Please start Docker Desktop first."
+# Check if Docker is running (with timeout)
+if ! timeout 5s docker info > /dev/null 2>&1; then
+  echo "❌ Error: Docker is not running or unresponsive. Please start/restart Docker Desktop."
   exit 1
+fi
+
+# Switch to Docker Desktop context if available (with timeout)
+if timeout 5s docker context use desktop-linux > /dev/null 2>&1; then
+  echo "✅ Switched to Docker Desktop context (desktop-linux)"
 fi
 
 # Start the container
