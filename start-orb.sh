@@ -17,3 +17,5 @@ echo "📍 RDP Access: localhost (User: docker / Pass: [none])"
 echo "--------------------------------------------------"
 echo "Note: The first run will take 15-20 mins to download Windows."
 echo "Use 'docker compose logs -f' to watch the download progress."
+echo "--------------------------------------------------"
+docker compose logs -f

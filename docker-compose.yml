@@ -1,18 +1,23 @@
 services:
   windows:
-    image: dockurr/windows
+    image: dockurr/windows-arm
     container_name: orb-win11-vbox
     environment:
       VERSION: "11" # Downloads Windows 11 Pro automatically
       KVM: "N"
-      RAM_SIZE: "8G" # Crucial for Merlin/SDK performance
-      CPU_CORES: "4" # Smoother UI experience
+      RAM_SIZE: "24G" # Crucial for Merlin/SDK performance
+      CPU_CORES: "14" # Smoother UI experience
+      ARGUMENTS: "-accel tcg,thread=multi" # ⚡ FORCE MULTI-CORE on M1/M2/M4
+      USERNAME: "alkami"
+      PASSWORD: "alkami123"
     ports:
       - 8006:8006 # WEB UI (Access via Browser)
       - 3389:3389/tcp # RDP (Access via Remote Desktop App)
       - 3389:3389/udp
+
     volumes:
-      - ./storage:/storage # Keeps your Windows data safe if container restarts
+      - ./storage:/storage # 💾 PERSISTENCE: Keeps your Windows installation safe
+      - ./storage:/shared # 📂 FILE SHARING: Makes this same folder visible at \\host.lan\Data
     # Hardware acceleration (Required for speed)
     cap_add:
       - NET_ADMIN # Allows Windows to manage its own network

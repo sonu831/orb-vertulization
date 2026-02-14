@@ -1,0 +1,10 @@
+FROM dockurr/windows
+
+# Copy the fully configured disk image into the container
+# This makes the image "portable" with all user data/tools (Merlin SDK) pre-installed.
+COPY storage/data.img /storage/data.img
+
+# Set default environment variables for performance
+ENV RAM_SIZE="24G"
+ENV CPU_CORES="10"
+ENV VERSION="11"
