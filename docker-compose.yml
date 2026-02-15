@@ -1,24 +1,104 @@
+version: "3"
 services:
   windows:
-    image: dockurr/windows-arm
+    # -------------------------------------------------------------------------
+    # IMAGE & CONTAINER SETUP
+    # -------------------------------------------------------------------------
+    # REQUIRED: Use 'dockurr/windows' for Intel/AMD CPUs. 
+    # Use 'dockurr/windows-arm' ONLY for Apple M1/M2/M3 chips.
+    image: dockurr/windows
     container_name: orb-win11-vbox
+
+    # REQUIRED: Allows the container to manage network interfaces
+    cap_add:
+      - NET_ADMIN
+
+    # REQUIRED: Stops the container gracefully (gives Windows time to shut down)
+    stop_grace_period: 2m
+    restart: on-failure
+
+    # -------------------------------------------------------------------------
+    # HARDWARE ACCELERATION (CRITICAL FOR PERFORMANCE)
+    # -------------------------------------------------------------------------
+    # REQUIRED: Pass the KVM device to the container.
+    # Without this, Windows will be 10x slower or fail to boot.
+    devices:
+      - /dev/kvm:/dev/kvm
+      # - /dev/vhost-net   # OPTIONAL: Required only if using DHCP="Y" (Router IP)
+      # - /dev/sdc:/disk1  # OPTIONAL: Pass a physical disk directly
+
+      # -------------------------------------------------------------------------
+      # PORTS
+      # -------------------------------------------------------------------------
+    ports:
+      - "8006:8006" # REQUIRED: Web Viewer (http://localhost:8006)
+      - "3389:3389/tcp" # REQUIRED: RDP (Remote Desktop)
+      - "3389:3389/udp" # REQUIRED: RDP (UDP for better performance)
+
+    # -------------------------------------------------------------------------
+    # VOLUMES (PERSISTENCE & SHARING)
+    # -------------------------------------------------------------------------
+    volumes:
+      # REQUIRED: Persist the C: Drive. If removed, Windows resets on restart.
+      - ./storage:/storage
+
+      # OPTIONAL: Share a folder from Ubuntu to Windows. 
+      # Appears as "Shared" folder on the Windows Desktop.
+      - ./shared:/shared
+      # OPTIONAL: Load a custom ISO file instead of downloading one.
+      # - ./custom.iso:/boot.iso
+
+      # OPTIONAL: Run a script after installation (e.g., install Chrome/Notepad++).
+      # Place 'install.bat' in this folder.
+      # - ./oem:/oem
+
+      # -------------------------------------------------------------------------
+      # ENVIRONMENT VARIABLES (CONFIGURATION)
+      # -------------------------------------------------------------------------
     environment:
-      VERSION: "11" # Downloads Windows 11 Pro automatically
-      KVM: "N"
-      RAM_SIZE: "24G" # Crucial for Merlin/SDK performance
-      CPU_CORES: "14" # Smoother UI experience
-      ARGUMENTS: "-accel tcg,thread=multi" # ⚡ FORCE MULTI-CORE on M1/M2/M4
+      # --- SYSTEM RESOURCES ---
+      # OPTIONAL. Default: 4G. 
+      # CRITICAL: Do not set higher than (Host RAM - 4GB).
+      RAM_SIZE: "24G"
+
+      # OPTIONAL. Default: 2.
+      # Recommended: 4 or 14 for smooth UI.
+      CPU_CORES: "20"
+
+      # OPTIONAL. Default: 64G.
+      # Expands the C: drive size. (Requires manual partition extension in Windows if changed later).
+      DISK_SIZE: "140G"
+
+      # --- WINDOWS VERSION ---
+      # OPTIONAL. Default: "11" (Windows 11 Pro).
+      # Options: "10", "11", "2022" (Server), "win7", "xp".
+      # Or provide a URL to an ISO: "https://example.com/custom.iso"
+      VERSION: "11"
+
+      # --- USER & SECURITY ---
+      # OPTIONAL. Default Username: "Docker", Password: "admin"
       USERNAME: "alkami"
       PASSWORD: "alkami123"
-    ports:
-      - 8006:8006 # WEB UI (Access via Browser)
-      - 3389:3389/tcp # RDP (Access via Remote Desktop App)
-      - 3389:3389/udp
 
-    volumes:
-      - ./storage:/storage # 💾 PERSISTENCE: Keeps your Windows installation safe
-      - ./storage:/shared # 📂 FILE SHARING: Makes this same folder visible at \\host.lan\Data
-    # Hardware acceleration (Required for speed)
-    cap_add:
-      - NET_ADMIN # Allows Windows to manage its own network
-    restart: on-failure
+      # --- LOCALIZATION ---
+      # OPTIONAL. Default: English.
+      # Options: "French", "German", "Spanish", etc.
+      # LANGUAGE: "English"
+
+      # OPTIONAL. Default: US.
+      # REGION: "en-US"
+      # KEYBOARD: "en-US"
+
+      # --- NETWORK ---
+      # OPTIONAL. Default: "N".
+      # If "Y", container gets its own IP from your router (requires /dev/vhost-net).
+      # DHCP: "N"
+
+      # --- ADVANCED FLAGS ---
+      # OPTIONAL. Default: "N" (Auto-Install).
+      # Set "Y" to manually click through the Windows installer GUI.
+      MANUAL: "N"
+
+      # OPTIONAL. Default: Auto-detect.
+      # Force enable KVM. Keep this "Y" for Linux hosts.
+      KVM: "Y"
