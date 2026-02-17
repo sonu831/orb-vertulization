@@ -311,4 +311,4 @@ orb-virtualization/
 ```
 
 ---
-*Maintained by the DevOps Architecture Team - Alkami India GCC*
+*Maintained by the DevEx Team - Alkami India GCC*
