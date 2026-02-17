@@ -102,3 +102,11 @@ services:
       # OPTIONAL. Default: Auto-detect.
       # Force enable KVM. Keep this "Y" for Linux hosts.
       KVM: "Y"
+
+      # --- DISK FORMAT ---
+      # OPTIONAL. Default: raw (data.img).
+      # If distributing via qcow2 (from scripts/convert-to-qcow2.sh), set:
+      #   DISK_TYPE: "qcow2"
+      # The file must be named data.img in ./storage/ regardless of format.
+      # QEMU auto-detects qcow2 by magic header, even with .img extension.
+      # DISK_TYPE: "qcow2"
