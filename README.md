@@ -171,9 +171,87 @@ If using a robust RDP client (like Microsoft Remote Desktop or Remmina with clip
 
 ---
 
-## ☁️ Production Deployment (AWS) - The Golden Image
+## 📦 Production Distribution (qcow2 + S3)
 
-To run this "Golden Image" on AWS for high performance:
+The raw `data.img` is **~140 GB** which is too large to ship as-is.
+The production pipeline converts it to **qcow2** (compressed to ~35–50 GB) and hosts it on S3.
+
+### How It Works
+
+```
+Developer Machine                       Client Machine
+─────────────────                       ──────────────
+storage/data.img (140 GB raw)
+       │
+  make convert-qcow2
+       │
+storage/data.qcow2 (~40 GB)
+       │
+  make upload-s3 S3_BUCKET=xxx
+       │
+    AWS S3  ─── presigned URL ───→  ./install.sh
+                                         │
+                                    downloads qcow2 (~40 GB)
+                                    pulls dockurr/windows image
+                                    writes docker-compose.yml
+                                    docker compose up -d
+                                         │
+                                    Windows 11 running
+```
+
+### Developer Side (Build + Ship)
+
+```bash
+# Step 1: Stop the running VM
+make down
+
+# Step 2: Convert data.img → qcow2 (20–45 min, ~70% smaller)
+make convert-qcow2
+
+# Step 3: Verify output
+qemu-img check storage/data.qcow2
+qemu-img info storage/data.qcow2
+
+# Step 4: Upload to S3
+make upload-s3 S3_BUCKET=orb-golden-images
+
+# Step 5: Generate a download URL (valid 7 days)
+aws s3 presign s3://orb-golden-images/orb/v1/data.qcow2 --expires-in 604800
+
+# Step 6: Package for client
+make package-client DATA_IMG_URL="https://s3.amazonaws.com/..."
+# Creates orb-client.zip → send to client
+```
+
+### Client Side (Install)
+
+```bash
+unzip orb-client.zip && cd orb-client
+chmod +x install.sh
+./install.sh
+```
+
+The install script checks Docker, KVM, disk space, downloads the qcow2 image (resumable), and starts Windows. First install takes ~45 min at 100 Mbps. Subsequent starts are instant.
+
+### Local Testing After Conversion
+
+```bash
+# Swap qcow2 in for local testing
+mv storage/data.img storage/data.img.raw   # backup original
+mv storage/data.qcow2 storage/data.img     # swap in (QEMU auto-detects format)
+make up                                    # test boot → http://localhost:8006
+
+# Rollback if needed
+make down
+mv storage/data.img storage/data.qcow2
+mv storage/data.img.raw storage/data.img
+```
+
+> For a deep dive into all 9 deployment strategies, cost estimates, and compression benchmarks, see [DEPLOYMENT-STRATEGIES.md](DEPLOYMENT-STRATEGIES.md).
+
+---
+
+## ☁️ Cloud Deployment (AWS)
 
 **Recommended Instance:** `c5.4xlarge` (16 vCPU, 32GB RAM).
 **OS:** Amazon Linux 2023 or Ubuntu.
@@ -195,25 +273,42 @@ docker run -d --name windows-orb --device /dev/kvm --cap-add NET_ADMIN \
 
 ---
 
-## � Golden Image Distribution (DevOps)
-
-Once you have installed the **Merlin SDK** and tools inside the VM, you can "freeze" it for the team.
-
-1.  **Stop:** `docker-compose down`
-2.  **Build:** `docker build -f Dockerfile.golden -t my-registry/windows-golden:v1 .`
-3.  **Push:** `docker push my-registry/windows-golden:v1`
-4.  **Run:** Team members run `docker run ... my-registry/windows-golden:v1` and get your exact environment instantly.
-
----
-
 ## 🛠️ Management Commands
 
 | Command | Description |
 | :--- | :--- |
-| `docker-compose up -d` | Starts the Docker container. |
-| `docker-compose down` | Stops the container gracefully. |
-| `docker-compose restart` | Restarts the container. |
-| `docker-compose logs -f` | View the logs (press `Ctrl+C` to exit). |
+| `make up` | Start the Windows environment (checks Docker, KVM, context) |
+| `make down` | Stop gracefully (saves state to `./storage`) |
+| `make restart` | Restart the environment |
+| `make logs` | Follow container logs |
+| `make status` | Show container status |
+| `make convert-qcow2` | Convert `data.img` → `data.qcow2` (~70% smaller) |
+| `make upload-s3 S3_BUCKET=xxx` | Upload `data.qcow2` to S3 |
+| `make package-client DATA_IMG_URL=xxx` | Create client install zip |
+
+---
+
+## 📁 Project Structure
+
+```
+orb-virtualization/
+├── docker-compose.yml          # VM configuration (ports, RAM, CPU, disk)
+├── Dockerfile.golden           # Legacy: bake full image into Docker layer
+├── Makefile                    # All management commands
+├── start-orb.sh               # Startup script (Docker context, KVM checks)
+├── scripts/
+│   ├── convert-to-qcow2.sh    # Convert data.img → compressed qcow2
+│   └── install.sh             # Client-side installer
+├── storage/                    # VM persistence (gitignored)
+│   ├── data.img                # Windows 11 disk (140 GB raw or qcow2)
+│   ├── merlin-x64.exe          # Merlin SDK (Intel/AMD)
+│   ├── merlin-arm64-arm.exe    # Merlin SDK (ARM)
+│   └── windows.*               # UEFI/BIOS config files
+├── shared/                     # Host ↔ VM file sharing
+├── oem/                        # Post-install scripts (optional)
+├── DEPLOYMENT-STRATEGIES.md    # Full deployment strategy guide (9 strategies)
+└── README.md
+```
 
 ---
 *Maintained by the DevOps Architecture Team - Alkami India GCC*
